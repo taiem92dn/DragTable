@@ -5,7 +5,6 @@ import android.annotation.SuppressLint;
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
-import android.graphics.ColorFilter;
 import android.graphics.Outline;
 import android.graphics.Paint;
 import android.graphics.Path;
@@ -15,12 +14,10 @@ import android.graphics.drawable.shapes.OvalShape;
 import android.graphics.drawable.shapes.RectShape;
 import android.graphics.drawable.shapes.RoundRectShape;
 import android.graphics.drawable.shapes.Shape;
-import android.icu.util.MeasureUnit;
 import android.os.Build;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.util.AttributeSet;
-import android.util.Log;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.MotionEvent;
@@ -29,9 +26,13 @@ import android.view.ViewGroup;
 import android.view.animation.AccelerateInterpolator;
 import android.view.animation.DecelerateInterpolator;
 import android.widget.TextView;
-import android.widget.Toast;
 
-import java.lang.reflect.Type;
+import com.example.user.dragtable.shape.CustomOvalShape;
+import com.example.user.dragtable.shape.CustomRectShape;
+import com.example.user.dragtable.shape.CustomRoundRectShape;
+import com.example.user.dragtable.shape.HasStroke;
+import com.example.user.dragtable.shape.TriangleShape;
+
 import java.util.ArrayList;
 
 @SuppressLint("AppCompatCustomView")
@@ -95,34 +96,10 @@ public class DragView extends TextView {
             flattenY.setInterpolator(new AccelerateInterpolator());
             flattenY.start();
             // set default color
-            mCardBackground.setColorFilter(mShapeColor, PorterDuff.Mode.SRC_ATOP);
+            mCardBackground.setColorFilter(null);
         }
     }
-    /**
-     * Simple shape example that generates a shadow casting outline.
-     */
-    private static class TriangleShape extends Shape {
-        private final Path mPath = new Path();
-        @Override
-        protected void onResize(float width, float height) {
-            mPath.reset();
-            mPath.moveTo(0, 0);
-            mPath.lineTo(width, 0);
-            mPath.lineTo(width / 2, height);
-            mPath.lineTo(0, 0);
-            mPath.close();
-        }
-        @Override
-        public void draw(Canvas canvas, Paint paint) {
-            canvas.drawPath(mPath, paint);
-        }
-        @Override
-        public void getOutline(@NonNull Outline outline) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                outline.setConvexPath(mPath);
-            }
-        }
-    }
+
 
     private float mDensity;
     private boolean mTiltEnabled = true;
@@ -130,7 +107,6 @@ public class DragView extends TextView {
     private ShapeDrawable mCardBackground = new ShapeDrawable();
     private CardDragState mDragState;
     private int mId;
-    private int mShapeColor;
 
     private final ArrayList<Shape> mShapes = new ArrayList<Shape>();
 
@@ -150,13 +126,7 @@ public class DragView extends TextView {
     }
 
     private void init() {
-        mDensity = getResources().getDisplayMetrics().density;
-        mShapes.add(new RectShape());
-        mShapes.add(new OvalShape());
-        float r = 10 * mDensity;
-        float radii[] = new float[] {r, r, r, r, r, r, r, r};
-        mShapes.add(new RoundRectShape(radii, null, null));
-        mShapes.add(new TriangleShape());
+        initShapes();
         mCardBackground.getPaint().setColor(Color.WHITE);
         mCardBackground.setShape(mShapes.get(0));
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN) {
@@ -225,6 +195,35 @@ public class DragView extends TextView {
         });
     }
 
+    private void initShapes() {
+        Paint strokePaint = new Paint();
+        strokePaint.setColor(Color.parseColor("#c2c2c2"));
+        strokePaint.setStrokeWidth(10);
+        strokePaint.setStyle(Paint.Style.STROKE);
+
+        TriangleShape triangleShape = new TriangleShape();
+
+        RectShape rectShape = new CustomRectShape();
+
+        OvalShape ovalShape = new CustomOvalShape();
+
+        mDensity = getResources().getDisplayMetrics().density;
+        float r = 10 * mDensity;
+        float radii[] = new float[] {r, r, r, r, r, r, r, r};
+        RoundRectShape roundRectShape = new CustomRoundRectShape(radii, null, null);
+
+        mShapes.add(rectShape);
+        mShapes.add(ovalShape);
+        mShapes.add(roundRectShape);
+        mShapes.add(triangleShape);
+
+        for (Shape shape : mShapes) {
+            if (shape instanceof HasStroke) {
+                ((HasStroke) shape).setStrokePaint(strokePaint);
+            }
+        }
+    }
+
     int getDP(float dp) {
         return (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, dp, getResources().getDisplayMetrics());
     }
@@ -252,7 +251,7 @@ public class DragView extends TextView {
     public void setShadingEnabled(boolean pShadingEnabled) {
         mShadingEnabled = pShadingEnabled;
         if (!mShadingEnabled) {
-            mCardBackground.setColorFilter(mShapeColor, PorterDuff.Mode.SRC_ATOP);
+            mCardBackground.setColorFilter(null);
         }
     }
 
@@ -265,23 +264,32 @@ public class DragView extends TextView {
     public void setId(int pId) {
         mId = pId;
         setText("T" + (pId+1));
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            setElevation(getElevation() + pId/3.0f);
+        }
     }
 
 
     int index = 0;
     public void changeShape() {
         index = (index + 1) % mShapes.size();
+        if (mCardBackground.getShape() instanceof HasStroke) {
+            ((HasStroke) mShapes.get(index)).isShowStroke(isSelected());
+        }
         mCardBackground.setShape(mShapes.get(index));
     }
 
     @Override
     public void setSelected(boolean selected) {
         super.setSelected(selected);
+        if (mCardBackground.getShape() instanceof HasStroke) {
+            ((HasStroke) mCardBackground.getShape()).isShowStroke(selected);
+            mCardBackground.invalidateSelf();
+        }
     }
 
     public void setShapeColor(int pColor) {
-        mShapeColor = pColor;
-        getBackground().setColorFilter(pColor, PorterDuff.Mode.SRC_ATOP);
-
+        mCardBackground.getPaint().setColor(pColor);
+        mCardBackground.invalidateSelf();
     }
 }

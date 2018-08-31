@@ -84,6 +84,9 @@ public class ShadowCardDrag extends Activity {
         dragView.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                if (selectedCard != null) {
+                    selectedCard.setSelected(false);
+                }
                 selectedCard = mCards.get(dragView.getId());
                 selectedCard.setSelected(true);
             }
