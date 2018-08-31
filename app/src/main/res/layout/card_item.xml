@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+    <TextView
+        xmlns:android="http://schemas.android.com/apk/res/android"
+        android:id="@+id/card"
+        android:layout_width="50dp"
+        android:layout_height="50dp"
+        android:background="@drawable/round_rect"
+        android:clipToPadding="false"
+        android:gravity="center"
+        android:padding="20dp"
+        android:text="@string/draggable_card"
+        android:textSize="20sp"
+        android:elevation="2dp"/>

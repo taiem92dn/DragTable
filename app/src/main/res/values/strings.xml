@@ -1,0 +1,9 @@
+<resources>
+    <string name="app_name">Drag Table</string>
+    <string name="enable_tilt">Enable Titl</string>
+    <string name="enable_shading">Enable Shading</string>
+    <string name="select_shape">Select Shape</string>
+    <string name="select_color">Select Color</string>
+    <string name="add_shape">Add</string>
+    <string name="draggable_card">Draggable Card</string>
+</resources>
