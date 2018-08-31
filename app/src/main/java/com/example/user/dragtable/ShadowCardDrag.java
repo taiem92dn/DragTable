@@ -34,6 +34,13 @@ public class ShadowCardDrag extends Activity {
             }
         });
 
+        findViewById(R.id.shape_remove).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                removeCard();
+            }
+        });
+
         findViewById(R.id.shape_select).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -43,6 +50,7 @@ public class ShadowCardDrag extends Activity {
             }
         });
 
+
         findViewById(R.id.color_select).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -51,7 +59,11 @@ public class ShadowCardDrag extends Activity {
         });
 
         addNewCard();
+    }
 
+    private void removeCard() {
+        cardParent.removeView(selectedCard);
+        selectedCard = null;
     }
 
     private void showColorPicker() {
