@@ -24,7 +24,7 @@ public class CustomRoundRectShape extends RoundRectShape implements HasStroke {
     }
 
     @Override
-    public void isShowStroke(boolean pIsShowStroke) {
+    public void setShowStroke(boolean pIsShowStroke) {
         isShowStroke = pIsShowStroke;
     }
 

@@ -58,6 +58,16 @@ public class ShadowCardDrag extends Activity {
             }
         });
 
+        cardParent.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (selectedCard != null) {
+                    selectedCard.setSelected(false);
+                    selectedCard = null;
+                }
+            }
+        });
+
         addNewCard();
     }
 
@@ -75,6 +85,9 @@ public class ShadowCardDrag extends Activity {
             public void onColorSelected(ColorEnvelope colorEnvelope) {
                 if (selectedCard != null) {
                     selectedCard.setShapeColor(colorEnvelope.getColor());
+                }
+                else {
+                    cardParent.setBackgroundColor(colorEnvelope.getColor());
                 }
             }
         });

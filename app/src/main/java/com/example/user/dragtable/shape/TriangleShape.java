@@ -41,7 +41,7 @@ public class TriangleShape extends Shape implements HasStroke {
     }
 
     @Override
-    public void isShowStroke(boolean pIsShowStroke) {
+    public void setShowStroke(boolean pIsShowStroke) {
         isShowStroke = pIsShowStroke;
     }
 
