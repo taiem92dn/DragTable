@@ -122,6 +122,7 @@ public class DragView extends TextView implements View.OnTouchListener {
     private float mHandleSize;
     private int mTouchPadding = 0;
     private Rect mFrameRect = new Rect();
+    private Rect mParentFrameRect = new Rect();
 
     float downX;
     float downY;
@@ -173,14 +174,65 @@ public class DragView extends TextView implements View.OnTouchListener {
 
     private void setSize(int width, int height) {
         ViewGroup.LayoutParams layoutParams = getLayoutParams();
+
         if (layoutParams == null) {
             layoutParams = new ViewGroup.LayoutParams(width, height);
         }
         else {
+            // check scale bound
+            int newR = mFrameRect.left + width;
+            int newB = mFrameRect.top + height;
+
+            if (newR > mParentFrameRect.right) {
+                width = mParentFrameRect.right - mFrameRect.left;
+            }
+
+            if (newB > mParentFrameRect.bottom) {
+                height = mParentFrameRect.bottom - mFrameRect.top;
+            }
+
             layoutParams.width = width;
             layoutParams.height = height;
         }
         setLayoutParams(layoutParams);
+
+    }
+
+    @Override
+    public void setTranslationX(float translationX) {
+        // check scale bound
+        float newL = translationX;
+        float newR = translationX + getWidth();
+
+        if (newL < mParentFrameRect.left) {
+            translationX = mParentFrameRect.left;
+        }
+
+        if (newR > mParentFrameRect.right) {
+            translationX = mParentFrameRect.right - getWidth();
+        }
+//        Log.d(TAG, "setTranslationX: " + translationX);
+
+        super.setTranslationX(translationX);
+    }
+
+    @Override
+    public void setTranslationY(float translationY) {
+        // check scale bound
+        float newT = translationY;
+        float newB = translationY + getHeight();
+
+        if (newT < mParentFrameRect.top) {
+            translationY = mParentFrameRect.top - mFrameRect.top;
+        }
+
+        if (newB > mParentFrameRect.bottom) {
+            translationY = mParentFrameRect.bottom - getHeight();
+        }
+
+//        Log.d(TAG, "translationY: " + mParentFrameRect.bottom);
+
+        super.setTranslationY(translationY);
     }
 
     private void initShapes() {
@@ -233,6 +285,7 @@ public class DragView extends TextView implements View.OnTouchListener {
         if (!isEditMode) return false;
 
         getGlobalVisibleRect(mFrameRect);
+        ((View) getParent()).getGlobalVisibleRect(mParentFrameRect);
         Log.d(TAG, "onTouch: " + mFrameRect);
         switch (event.getAction()) {
             case MotionEvent.ACTION_DOWN:
