@@ -1,9 +1,7 @@
 package com.example.user.dragtable.shape;
 
 import android.graphics.Canvas;
-import android.graphics.Color;
 import android.graphics.Paint;
-import android.graphics.Rect;
 import android.graphics.RectF;
 import android.graphics.drawable.shapes.RectShape;
 
@@ -24,15 +22,23 @@ public class CustomRectShape extends RectShape implements HasStroke, HasHandle {
 
         if (isShowHandle) {
             RectF rect = rect();
-            canvas.drawCircle(rect.top, rect.left, mHandleSize, mHandlePaint);
-            canvas.drawCircle(rect.bottom, rect.left, mHandleSize, mHandlePaint);
-            canvas.drawCircle(rect.top, rect.right, mHandleSize, mHandlePaint);
-            canvas.drawCircle(rect.bottom, rect.bottom, mHandleSize, mHandlePaint);
-            canvas.drawCircle(rect.top, rect.left, mHandleSize, mHandlePaint);
-            canvas.drawCircle(rect.top, rect.centerX(), mHandleSize, mHandlePaint);
-            canvas.drawCircle(rect.bottom, rect.centerX(), mHandleSize, mHandlePaint);
-            canvas.drawCircle(rect.centerY(), rect.left, mHandleSize, mHandlePaint);
-            canvas.drawCircle(rect.centerY(), rect.right, mHandleSize, mHandlePaint);
+            RectF oval = new RectF();
+            oval.set(rect.left-mHandleSize, rect.top-mHandleSize, rect.left+mHandleSize, rect.top+mHandleSize);
+            canvas.drawArc(oval, 0, 90, true, mHandlePaint);
+            oval.set(rect.centerX()-mHandleSize, rect.top-mHandleSize, rect.centerX()+mHandleSize, rect.top+mHandleSize);
+            canvas.drawArc(oval, 0, 180, true, mHandlePaint);
+            oval.set(rect.right-mHandleSize, rect.top-mHandleSize, rect.right+mHandleSize, rect.top+mHandleSize);
+            canvas.drawArc(oval, 90, 90, true, mHandlePaint);
+            oval.set(rect.right-mHandleSize, rect.centerY()-mHandleSize, rect.right+mHandleSize, rect.centerY()+mHandleSize);
+            canvas.drawArc(oval, 90, 180, true, mHandlePaint);
+            oval.set(rect.right-mHandleSize, rect.bottom-mHandleSize, rect.right+mHandleSize, rect.bottom+mHandleSize);
+            canvas.drawArc(oval, 180, 90, true, mHandlePaint);
+            oval.set(rect.centerX()-mHandleSize, rect.bottom-mHandleSize, rect.centerX()+mHandleSize, rect.bottom+mHandleSize);
+            canvas.drawArc(oval, 180, 180, true, mHandlePaint);
+            oval.set(rect.left-mHandleSize, rect.bottom-mHandleSize, rect.left+mHandleSize, rect.bottom+mHandleSize);
+            canvas.drawArc(oval, 270, 90, true, mHandlePaint);
+            oval.set(rect.left-mHandleSize, rect.centerY()-mHandleSize, rect.left+mHandleSize, rect.centerY()+mHandleSize);
+            canvas.drawArc(oval, 270, 180, true, mHandlePaint);
         }
     }
 

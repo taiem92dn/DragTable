@@ -103,6 +103,7 @@ public class ShadowCardDrag extends Activity {
     private void addNewCard() {
         final DragView dragView = new DragView(this);
         dragView.setId(mCards.size());
+        dragView.setEditMode(true);
         mCards.add(dragView);
         cardParent.addView(dragView);
 

@@ -16,6 +16,7 @@ import android.graphics.drawable.shapes.Shape;
 import android.os.Build;
 import android.support.annotation.Nullable;
 import android.util.AttributeSet;
+import android.util.Log;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.MotionEvent;
@@ -23,6 +24,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.animation.AccelerateInterpolator;
 import android.view.animation.DecelerateInterpolator;
+import android.widget.FrameLayout;
 import android.widget.TextView;
 
 import com.example.user.dragtable.shape.CustomOvalShape;
@@ -37,14 +39,20 @@ import java.util.ArrayList;
 @SuppressLint("AppCompatCustomView")
 public class DragView extends TextView implements View.OnTouchListener {
 
+    private static final String TAG = DragView.class.getSimpleName();
+
     private static final float MAX_Z_DP = 10;
     private static final float MOMENTUM_SCALE = 10;
     private static final int MAX_ANGLE = 10;
 
-    private static final int HANDLE_SIZE_IN_DP = 10;
+    private static final int HANDLE_SIZE_IN_DP = 25;
+    private static final int MIN_FRAME_SIZE_IN_DP = 70;
     private TouchArea mTouchArea;
 
     private boolean isEditMode;
+    private float mLastX;
+    private float mLastY;
+    private float mMinSize;
 
     private class CardDragState {
         long lastEventTime;
@@ -113,7 +121,7 @@ public class DragView extends TextView implements View.OnTouchListener {
     private int mId;
     private float mHandleSize;
     private int mTouchPadding = 0;
-    private Rect mFrameRect;
+    private Rect mFrameRect = new Rect();
 
     float downX;
     float downY;
@@ -138,6 +146,8 @@ public class DragView extends TextView implements View.OnTouchListener {
 
     private void init() {
         initShapes();
+        mMinSize = mDensity * MIN_FRAME_SIZE_IN_DP;
+
         mCardBackground.getPaint().setColor(Color.WHITE);
         mCardBackground.setShape(mShapes.get(0));
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN) {
@@ -156,19 +166,31 @@ public class DragView extends TextView implements View.OnTouchListener {
 
 
         mDragState = new CardDragState(this);
-        setLayoutParams(new ViewGroup.LayoutParams(getDP(100), getDP(100)));
+        setSize(getDP(100), getDP(100));
 
         this.setOnTouchListener(this);
     }
 
+    private void setSize(int width, int height) {
+        ViewGroup.LayoutParams layoutParams = getLayoutParams();
+        if (layoutParams == null) {
+            layoutParams = new ViewGroup.LayoutParams(width, height);
+        }
+        else {
+            layoutParams.width = width;
+            layoutParams.height = height;
+        }
+        setLayoutParams(layoutParams);
+    }
+
     private void initShapes() {
         Paint strokePaint = new Paint();
-        strokePaint.setColor(Color.parseColor("#c2c2c2"));
-        strokePaint.setStrokeWidth(10);
+        strokePaint.setColor(Color.parseColor("#dedede"));
+        strokePaint.setStrokeWidth(7);
         strokePaint.setStyle(Paint.Style.STROKE);
 
         Paint handlePaint = new Paint();
-        handlePaint.setColor(Color.parseColor("#c2c2c2"));
+        handlePaint.setColor(Color.parseColor("#f0f0f0"));
         handlePaint.setStyle(Paint.Style.FILL);
 
         TriangleShape triangleShape = new TriangleShape();
@@ -200,7 +222,6 @@ public class DragView extends TextView implements View.OnTouchListener {
         }
     }
 
-
     /**
       Enable any touch on the parent to drag the card. Note that this doesn't do a proper hit
       test, so any drag (including off of the card) will work.
@@ -209,16 +230,35 @@ public class DragView extends TextView implements View.OnTouchListener {
      **/
     @Override
     public boolean onTouch(View v, MotionEvent event) {
-        mFrameRect = getRect();
+        if (!isEditMode) return false;
+
+        getGlobalVisibleRect(mFrameRect);
+        Log.d(TAG, "onTouch: " + mFrameRect);
         switch (event.getAction()) {
             case MotionEvent.ACTION_DOWN:
-                onDown(v, event);
+                checkTouchArea(event.getRawX(), event.getRawY());
+                if (isResizing()) {
+                    onDownResizing(event);
+                }
+                else {
+                    onDown(v, event);
+                }
                 break;
             case MotionEvent.ACTION_MOVE:
-                onMove(v, event);
+                if (isResizing()) {
+                    onMoveResizing(event);
+                }
+                else {
+                    onMove(v, event);
+                }
                 break;
             case MotionEvent.ACTION_UP:
-                onUp(v, event);
+                if (isResizing()) {
+                    onUpResizing(event);
+                }
+                else {
+                    onUp(v, event);
+                }
                 break;
         }
         return false;
@@ -241,6 +281,7 @@ public class DragView extends TextView implements View.OnTouchListener {
     private void onMove(View v, MotionEvent event) {
         v.setTranslationX(event.getRawX() - downX);
         v.setTranslationY(event.getRawY() - downY);
+        Log.d(TAG, "onMove: " + v.getTranslationX() + ", " + v.getTranslationY());
         if (mTiltEnabled) {
             mDragState.onMove(event.getEventTime(), event.getRawX(), event.getRawY());
         }
@@ -254,6 +295,192 @@ public class DragView extends TextView implements View.OnTouchListener {
         if (mTiltEnabled) {
             mDragState.onUp();
         }
+    }
+
+    private void onDownResizing(MotionEvent e) {
+        mLastX = e.getRawX();
+        mLastY = e.getRawY();
+    }
+
+    private void onMoveResizing(MotionEvent e) {
+        float diffX = e.getRawX() - mLastX;
+        float diffY = e.getRawY() - mLastY;
+        switch (mTouchArea) {
+            case LEFT_TOP:
+                moveHandleLT(diffX, diffY);
+                break;
+            case RIGHT_TOP:
+                moveHandleRT(diffX, diffY);
+                break;
+            case LEFT_BOTTOM:
+                moveHandleLB(diffX, diffY);
+                break;
+            case RIGHT_BOTTOM:
+                moveHandleRB(diffX, diffY);
+                break;
+            case LEFT_CENTER:
+                moveHandleLC(diffX, diffY);
+                break;
+            case RIGHT_CENTER:
+                moveHandleRC(diffX, diffY);
+                break;
+            case CENTER_BOTTOM:
+                moveHandleCB(diffX, diffY);
+                break;
+            case CENTER_TOP:
+                moveHandleCT(diffX, diffY);
+                break;
+            case OUT_OF_BOUNDS:
+                break;
+        }
+        invalidate();
+        mLastX = e.getRawX();
+        mLastY = e.getRawY();
+    }
+
+    private void onUpResizing(MotionEvent e) {
+        mTouchArea = TouchArea.OUT_OF_BOUNDS;
+    }
+
+    private void moveHandleLT(float diffX, float diffY) {
+        int newL = mFrameRect.left + (int) diffX;
+        int newT = mFrameRect.top + (int) diffY;
+
+        int newW = mFrameRect.right - newL;
+        int newH = mFrameRect.bottom - newT;
+
+        if (isWidthTooSmall(newW)) {
+            float offsetX = mMinSize - newW;
+            newL -= offsetX;
+        }
+        if (isHeightTooSmall(newH)) {
+            float offsetY = mMinSize - newH;
+            newT -= offsetY;
+        }
+
+        newW = mFrameRect.right - newL;
+        newH = mFrameRect.bottom - newT;
+//        checkScaleBounds();
+        setSize(newW, newH);
+        setTranslationX(getTranslationX() + (newL - mFrameRect.left));
+        setTranslationY(getTranslationY() + (newT - mFrameRect.top));
+    }
+
+    private void moveHandleLC(float diffX, float diffY) {
+        int newL = mFrameRect.left + (int) diffX;
+
+        int newW = mFrameRect.right - newL;
+
+        if (isWidthTooSmall(newW)) {
+            float offsetX = mMinSize - newW;
+            newL -= offsetX;
+        }
+
+        newW = mFrameRect.right - newL;
+        setSize(newW, getHeight());
+        setTranslationX(getTranslationX() + (newL - mFrameRect.left));
+    }
+
+    private void moveHandleRT(float diffX, float diffY) {
+        int newR = mFrameRect.right + (int) diffX;
+        int newT = mFrameRect.top + (int) diffY;
+
+        int newW = newR - mFrameRect.left;
+        int newH = mFrameRect.bottom - newT;
+
+        if (isWidthTooSmall(newW)) {
+            float offsetX = mMinSize - newW;
+            newR += offsetX;
+        }
+        if (isHeightTooSmall(newH)) {
+            float offsetY = mMinSize - newH;
+            newT -= offsetY;
+        }
+
+        newW = newR - mFrameRect.left;
+        newH = mFrameRect.bottom - newT;
+//        checkScaleBounds();
+        setSize(newW, newH);
+        setTranslationY(getTranslationY() + (newT - mFrameRect.top));
+    }
+
+    private void moveHandleRC(float diffX, float diffY) {
+        int newR = mFrameRect.right + (int) diffX;
+
+        int newW = newR - mFrameRect.left;
+
+        if (isWidthTooSmall(newW)) {
+            float offsetX = mMinSize - newW;
+            newR += offsetX;
+        }
+
+        newW = newR - mFrameRect.left;
+        setSize(newW, getHeight());
+    }
+
+    private void moveHandleLB(float diffX, float diffY) {
+        int newL = mFrameRect.left + (int) diffX;
+        int newB = mFrameRect.bottom + (int) diffY;
+
+        int newW = mFrameRect.right - newL;
+        int newH = newB - mFrameRect.top;
+
+        if (isWidthTooSmall(newW)) {
+            float offsetX = mMinSize - newW;
+            newL -= offsetX;
+        }
+        if (isHeightTooSmall(newH)) {
+            float offsetY = mMinSize - newH;
+            newB += offsetY;
+        }
+
+        newW = mFrameRect.right - newL;
+        newH = newB - mFrameRect.top;
+//        checkScaleBounds();
+        setSize(newW, newH);
+        setTranslationX(getTranslationX() + (newL - mFrameRect.left));
+    }
+
+    private void moveHandleCB(float diffX, float diffY) {
+        int newB = mFrameRect.bottom + (int) diffY;
+
+        int newH = newB - mFrameRect.top;
+        if (isHeightTooSmall(newH)) {
+            float offsetY = mMinSize - newH;
+            newB += offsetY;
+        }
+        newH = newB - mFrameRect.top;
+
+        setSize(getWidth(), newH);
+    }
+
+    private void moveHandleRB(float diffX, float diffY) {
+        float newW = getWidth() + diffX;
+        float newH = getHeight() + diffY;
+        if (isWidthTooSmall(newW)) {
+            newW = mMinSize;
+        }
+        if (isHeightTooSmall(newH)) {
+            newH = mMinSize;
+        }
+//        checkScaleBounds();
+        setSize((int) newW, (int) newH);
+    }
+
+    private void moveHandleCT(float diffX, float diffY) {
+        int newT = mFrameRect.top + (int) diffY;
+
+        int newH = mFrameRect.bottom - newT;
+
+        if (isHeightTooSmall(newH)) {
+            float offsetY = mMinSize - newH;
+            newT -= offsetY;
+        }
+
+        newH = mFrameRect.bottom - newT;
+
+        setSize(getWidth(), newH);
+        setTranslationY(getTranslationY() + (newT - mFrameRect.top));
     }
 
     int getDP(float dp) {
@@ -358,6 +585,22 @@ public class DragView extends TextView implements View.OnTouchListener {
             mTouchArea = TouchArea.RIGHT_BOTTOM;
             return;
         }
+        if (isInsideLeftCenter(x, y)) {
+            mTouchArea = TouchArea.LEFT_CENTER;
+            return;
+        }
+        if (isInsideRightCenter(x, y)) {
+            mTouchArea = TouchArea.RIGHT_CENTER;
+            return;
+        }
+        if (isInsideCenterTop(x, y)) {
+            mTouchArea = TouchArea.CENTER_TOP;
+            return;
+        }
+        if (isInsideCenterBottom(x, y)) {
+            mTouchArea = TouchArea.CENTER_BOTTOM;
+            return;
+        }
 
         mTouchArea = TouchArea.CENTER;
     }
@@ -390,8 +633,44 @@ public class DragView extends TextView implements View.OnTouchListener {
         return sq(mHandleSize + mTouchPadding) >= d;
     }
 
-    private Rect getRect() {
-        return mCardBackground.getBounds();
+    private boolean isInsideLeftCenter(float x, float y) {
+        float dx = x - mFrameRect.left;
+        float dy = y - mFrameRect.centerY();
+        float d = dx * dx + dy * dy;
+        return sq(mHandleSize + mTouchPadding) >= d;
+    }
+
+    private boolean isInsideRightCenter(float x, float y) {
+        float dx = x - mFrameRect.right;
+        float dy = y - mFrameRect.centerY();
+        float d = dx * dx + dy * dy;
+        return sq(mHandleSize + mTouchPadding) >= d;
+    }
+
+    private boolean isInsideCenterTop(float x, float y) {
+        float dx = x - mFrameRect.centerX();
+        float dy = y - mFrameRect.top;
+        float d = dx * dx + dy * dy;
+        return sq(mHandleSize + mTouchPadding) >= d;
+    }
+
+    private boolean isInsideCenterBottom(float x, float y) {
+        float dx = x - mFrameRect.centerX();
+        float dy = y - mFrameRect.bottom;
+        float d = dx * dx + dy * dy;
+        return sq(mHandleSize + mTouchPadding) >= d;
+    }
+
+    private boolean isWidthTooSmall(float width) {
+        return width < mMinSize;
+    }
+
+    private boolean isHeightTooSmall(float height) {
+        return height < mMinSize;
+    }
+
+    private boolean isResizing() {
+        return mTouchArea != TouchArea.CENTER;
     }
 
     private float sq(float value) {
@@ -399,6 +678,6 @@ public class DragView extends TextView implements View.OnTouchListener {
     }
 
     private enum TouchArea {
-        OUT_OF_BOUNDS, CENTER, LEFT_TOP, RIGHT_TOP, LEFT_BOTTOM, RIGHT_BOTTOM
+        OUT_OF_BOUNDS, CENTER, LEFT_TOP, RIGHT_TOP, LEFT_BOTTOM, RIGHT_BOTTOM, LEFT_CENTER, RIGHT_CENTER, CENTER_TOP, CENTER_BOTTOM
     }
 }
