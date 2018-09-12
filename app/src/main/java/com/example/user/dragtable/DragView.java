@@ -158,7 +158,6 @@ public class DragView extends TextView implements View.OnTouchListener {
         int padding = (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 20, getResources().getDisplayMetrics());
         setPadding(padding, padding, padding, padding);
 //        setBackgroundResource(R.drawable.round_rect);
-        setText(R.string.draggable_card);
         setTextSize(TypedValue.COMPLEX_UNIT_SP, 20);
         setGravity(Gravity.CENTER);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
@@ -201,17 +200,16 @@ public class DragView extends TextView implements View.OnTouchListener {
     @Override
     public void setTranslationX(float translationX) {
         // check scale bound
-        float newL = translationX;
-        float newR = translationX + getWidth();
+        float newL = translationX + mParentFrameRect.left;
+        float newR = translationX + getWidth() + mParentFrameRect.left;
 
         if (newL < mParentFrameRect.left) {
-            translationX = mParentFrameRect.left;
+            translationX = 0;
         }
 
         if (newR > mParentFrameRect.right) {
-            translationX = mParentFrameRect.right - getWidth();
+            translationX = mParentFrameRect.right - mParentFrameRect.left - getWidth();
         }
-//        Log.d(TAG, "setTranslationX: " + translationX);
 
         super.setTranslationX(translationX);
     }
@@ -219,18 +217,17 @@ public class DragView extends TextView implements View.OnTouchListener {
     @Override
     public void setTranslationY(float translationY) {
         // check scale bound
-        float newT = translationY;
-        float newB = translationY + getHeight();
+        float newT = translationY + mParentFrameRect.top;
+        float newB = translationY + getHeight() + mParentFrameRect.top;
 
         if (newT < mParentFrameRect.top) {
-            translationY = mParentFrameRect.top - mFrameRect.top;
+            translationY = 0;
         }
 
         if (newB > mParentFrameRect.bottom) {
-            translationY = mParentFrameRect.bottom - getHeight();
+            translationY = mParentFrameRect.bottom - mParentFrameRect.top - getHeight();
         }
 
-//        Log.d(TAG, "translationY: " + mParentFrameRect.bottom);
 
         super.setTranslationY(translationY);
     }
@@ -238,14 +235,13 @@ public class DragView extends TextView implements View.OnTouchListener {
     private void initShapes() {
         Paint strokePaint = new Paint();
         strokePaint.setColor(Color.parseColor("#dedede"));
-        strokePaint.setStrokeWidth(7);
+        strokePaint.setStrokeWidth(5);
         strokePaint.setStyle(Paint.Style.STROKE);
 
         Paint handlePaint = new Paint();
         handlePaint.setColor(Color.parseColor("#f0f0f0"));
         handlePaint.setStyle(Paint.Style.FILL);
 
-        TriangleShape triangleShape = new TriangleShape();
 
         RectShape rectShape = new CustomRectShape();
 
@@ -275,10 +271,10 @@ public class DragView extends TextView implements View.OnTouchListener {
     }
 
     /**
-      Enable any touch on the parent to drag the card. Note that this doesn't do a proper hit
-      test, so any drag (including off of the card) will work.
+     Enable any touch on the parent to drag the card. Note that this doesn't do a proper hit
+     test, so any drag (including off of the card) will work.
 
-      This enables the user to see the effect more clearly for the purpose of this demo.
+     This enables the user to see the effect more clearly for the purpose of this demo.
      **/
     @Override
     public boolean onTouch(View v, MotionEvent event) {
@@ -286,7 +282,9 @@ public class DragView extends TextView implements View.OnTouchListener {
 
         getGlobalVisibleRect(mFrameRect);
         ((View) getParent()).getGlobalVisibleRect(mParentFrameRect);
-        Log.d(TAG, "onTouch: " + mFrameRect);
+
+        Log.d(TAG, "onTouch: " + event.getRawX() + ", " + event.getRawY());
+        Log.d(TAG, "parent frame: " + mParentFrameRect);
         switch (event.getAction()) {
             case MotionEvent.ACTION_DOWN:
                 checkTouchArea(event.getRawX(), event.getRawY());
@@ -334,7 +332,6 @@ public class DragView extends TextView implements View.OnTouchListener {
     private void onMove(View v, MotionEvent event) {
         v.setTranslationX(event.getRawX() - downX);
         v.setTranslationY(event.getRawY() - downY);
-        Log.d(TAG, "onMove: " + v.getTranslationX() + ", " + v.getTranslationY());
         if (mTiltEnabled) {
             mDragState.onMove(event.getEventTime(), event.getRawX(), event.getRawY());
         }
@@ -396,8 +393,8 @@ public class DragView extends TextView implements View.OnTouchListener {
     }
 
     private void moveHandleLT(float diffX, float diffY) {
-        int newL = mFrameRect.left + (int) diffX;
-        int newT = mFrameRect.top + (int) diffY;
+        int newL = checkScaleBoundLeft(mFrameRect.left + (int) diffX);
+        int newT = checkScaleBoundTop(mFrameRect.top + (int) diffY);
 
         int newW = mFrameRect.right - newL;
         int newH = mFrameRect.bottom - newT;
@@ -413,14 +410,13 @@ public class DragView extends TextView implements View.OnTouchListener {
 
         newW = mFrameRect.right - newL;
         newH = mFrameRect.bottom - newT;
-//        checkScaleBounds();
         setSize(newW, newH);
         setTranslationX(getTranslationX() + (newL - mFrameRect.left));
         setTranslationY(getTranslationY() + (newT - mFrameRect.top));
     }
 
     private void moveHandleLC(float diffX, float diffY) {
-        int newL = mFrameRect.left + (int) diffX;
+        int newL = checkScaleBoundLeft(mFrameRect.left + (int) diffX);
 
         int newW = mFrameRect.right - newL;
 
@@ -435,8 +431,8 @@ public class DragView extends TextView implements View.OnTouchListener {
     }
 
     private void moveHandleRT(float diffX, float diffY) {
-        int newR = mFrameRect.right + (int) diffX;
-        int newT = mFrameRect.top + (int) diffY;
+        int newR = checkScaleBoundRight(mFrameRect.right + (int) diffX);
+        int newT = checkScaleBoundTop(mFrameRect.top + (int) diffY);
 
         int newW = newR - mFrameRect.left;
         int newH = mFrameRect.bottom - newT;
@@ -452,13 +448,12 @@ public class DragView extends TextView implements View.OnTouchListener {
 
         newW = newR - mFrameRect.left;
         newH = mFrameRect.bottom - newT;
-//        checkScaleBounds();
         setSize(newW, newH);
         setTranslationY(getTranslationY() + (newT - mFrameRect.top));
     }
 
     private void moveHandleRC(float diffX, float diffY) {
-        int newR = mFrameRect.right + (int) diffX;
+        int newR = checkScaleBoundRight(mFrameRect.right + (int) diffX);
 
         int newW = newR - mFrameRect.left;
 
@@ -472,8 +467,8 @@ public class DragView extends TextView implements View.OnTouchListener {
     }
 
     private void moveHandleLB(float diffX, float diffY) {
-        int newL = mFrameRect.left + (int) diffX;
-        int newB = mFrameRect.bottom + (int) diffY;
+        int newL = checkScaleBoundLeft(mFrameRect.left + (int) diffX);
+        int newB = checkScaleBoundBottom(mFrameRect.bottom + (int) diffY);
 
         int newW = mFrameRect.right - newL;
         int newH = newB - mFrameRect.top;
@@ -495,7 +490,7 @@ public class DragView extends TextView implements View.OnTouchListener {
     }
 
     private void moveHandleCB(float diffX, float diffY) {
-        int newB = mFrameRect.bottom + (int) diffY;
+        int newB = checkScaleBoundBottom(mFrameRect.bottom + (int) diffY);
 
         int newH = newB - mFrameRect.top;
         if (isHeightTooSmall(newH)) {
@@ -521,7 +516,7 @@ public class DragView extends TextView implements View.OnTouchListener {
     }
 
     private void moveHandleCT(float diffX, float diffY) {
-        int newT = mFrameRect.top + (int) diffY;
+        int newT = checkScaleBoundTop(mFrameRect.top + (int) diffY);
 
         int newH = mFrameRect.bottom - newT;
 
@@ -534,6 +529,34 @@ public class DragView extends TextView implements View.OnTouchListener {
 
         setSize(getWidth(), newH);
         setTranslationY(getTranslationY() + (newT - mFrameRect.top));
+    }
+
+    private int checkScaleBoundLeft(int left) {
+        if (left < mParentFrameRect.left) {
+            return mParentFrameRect.left;
+        }
+        return left;
+    }
+
+    private int checkScaleBoundRight(int right) {
+        if (right > mParentFrameRect.right) {
+            return mParentFrameRect.right;
+        }
+        return right;
+    }
+
+    private int checkScaleBoundTop(int top) {
+        if (top < mParentFrameRect.top) {
+            return mParentFrameRect.top;
+        }
+        return top;
+    }
+
+    private int checkScaleBoundBottom(int bottom) {
+        if (bottom > mParentFrameRect.bottom) {
+            return mParentFrameRect.bottom;
+        }
+        return bottom;
     }
 
     int getDP(float dp) {
@@ -609,6 +632,10 @@ public class DragView extends TextView implements View.OnTouchListener {
         if (mCardBackground.getShape() instanceof HasHandle) {
             ((HasHandle) mCardBackground.getShape()).setShowHandle(selected);
             mCardBackground.invalidateSelf();
+        }
+
+        if (selected) {
+            getParent().bringChildToFront(this);
         }
     }
 
