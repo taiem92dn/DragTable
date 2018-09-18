@@ -638,7 +638,7 @@ public class DragView extends TextView implements View.OnTouchListener {
             getParent().bringChildToFront(this);
         }
 
-        // test commit
+        // test commit master
     }
 
     public void setShapeColor(int pColor) {
